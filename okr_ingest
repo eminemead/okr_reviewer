@@ -1,0 +1,65 @@
+import duckdb
+import requests
+import json
+import os
+from datetime import datetime
+
+def fetch_okr_for_open_id(open_id, access_token, limit=2):
+    url = "https://open.feishu.cn/open-apis/okr/v1/okr/list"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+    payload = {"user_id": open_id, "limit": limit, "offset": 0}
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    response.raise_for_status()
+    return response.json()
+
+def okr_to_markdown(user, okr_data):
+    md = [f'## User: {user}']
+    okr_list = okr_data.get('data', {}).get('okr_list', [])
+    for okr in okr_list:
+        md.append(f"\n### Period: {okr.get('name', '')}")
+        for obj in okr.get('objective_list', []):
+            md.append(f"- **Objective:** {obj.get('content', '').strip()}")
+            for i, kr in enumerate(obj.get('kr_list', []), 1):
+                md.append(f"  - **KR {i}:** {kr.get('content', '').strip()}")
+                md.append(f"    - Progress: {kr.get('progress_rate', {}).get('percent', 0)}%")
+                md.append(f"    - Score: {kr.get('score', 0)}")
+    return '\n'.join(md)
+
+def main(args):
+    conn = duckdb.connect(args.db_path)
+    try:
+        rows = conn.execute("SELECT email, open_id FROM feishu_open_ids").fetchall()
+    finally:
+        conn.close()
+    print(f"Processing {len(rows)} users for OKR export...")
+    
+    # Generate unique filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_filename = f"okr_report_{timestamp}.md"
+    
+    with open(report_filename, "w", encoding="utf-8") as f:
+        f.write("# OKR Report\n\n")
+        for email, open_id in rows:
+            print(f"Fetching OKR for {email} ({open_id})")
+            try:
+                okr_data = fetch_okr_for_open_id(open_id, args.access_token, args.okr_limit)
+                print(json.dumps(okr_data, indent=2, ensure_ascii=False))
+                md = okr_to_markdown(email, okr_data)
+                f.write(md + "\n\n")
+            except Exception as e:
+                print(f"Error fetching OKR for {email}: {e}")
+                f.write(f"## User: {email}\n- Error fetching OKR: {e}\n\n")
+    print(f"OKR report written to {report_filename}")
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Fetch OKRs for all open_ids in DuckDB and write to markdown report.")
+    parser.add_argument("--db_path", type=str, default=os.getenv("DUCKDB_PATH", "/Users/xiaofei.yin/rill_test.db"), help="Path to DuckDB database.")
+    parser.add_argument("--access_token", type=str, default=os.getenv("FEISHU_ACCESS_TOKEN"), help="Feishu API access token.")
+    parser.add_argument("--okr_limit", type=int, default=2, help="Limit for number of OKRs to fetch per user.")
+    args = parser.parse_args()
+    main(args)
+
