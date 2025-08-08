@@ -94,9 +94,13 @@ def main(args):
         conn.close()
     print(f"Processing {len(fellow_ad_accounts)} users for OKR export...")
     
-    # Generate unique filename with timestamp
+    # Ensure reports output directory exists
+    output_dir = os.path.join("outputs", "reports")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Generate unique filename with timestamp in reports folder
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_filename = f"okr_report_{timestamp}.md"
+    report_filename = os.path.join(output_dir, f"okr_report_{timestamp}.md")
     
     with open(report_filename, "w", encoding="utf-8") as f:
         f.write("# OKR Report\n\n")

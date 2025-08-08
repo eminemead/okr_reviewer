@@ -1,0 +1,17 @@
+[project]
+name = "okr-reviewer"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "xiaofei.yin", email = "xiaofei.yin@nio.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+okr-reviewer = "okr_reviewer:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
