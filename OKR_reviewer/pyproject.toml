@@ -7,7 +7,12 @@ authors = [
     { name = "xiaofei.yin", email = "xiaofei.yin@nio.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "duckdb>=1.3.2",
+    "matplotlib>=3.10.5",
+    "pandas>=2.3.1",
+    "seaborn>=0.13.2",
+]
 
 [project.scripts]
 okr-reviewer = "okr_reviewer:main"

@@ -30,21 +30,57 @@ export DUCKDB_COLUMN="your_column_name"
 
 ## Usage
 
-### Method 1: Using the convenience script (Recommended)
+### Method 1: Using the Pipeline Orchestrator (Recommended)
+
+The `main_orchestrator.py` script runs the complete OKR processing pipeline:
+
+```bash
+# Run complete pipeline with default settings
+uv run python main_orchestrator.py
+
+# Custom configuration
+uv run python main_orchestrator.py --okr_limit 5 --port 8080
+
+# Skip dashboard (run all other steps)
+uv run python main_orchestrator.py --skip-dashboard
+```
+
+Or use the shell wrapper:
+```bash
+# Basic usage
+./run_pipeline.sh
+
+# Custom settings: OKR limit, skip dashboard, port
+./run_pipeline.sh 5 true 8080
+```
+
+### Method 2: Individual Scripts
 
 ```bash
 # Generate OKR report (uses fellow_ad_accounts method by default)
-python generate_okr_report.py
+uv run python generate_okr_report.py
 
 # Specify number of OKRs per user
-python generate_okr_report.py --okr_limit 5
+uv run python generate_okr_report.py --okr_limit 5
+
+# Extract metrics from reports
+uv run python extract_okr_metrics.py
+
+# Export data to CSV
+uv run python export_metrics.py
+
+# Generate insights
+uv run python summary_insights.py
+
+# Start dashboard
+uv run python fasthtml_dashboard.py
 ```
 
-### Method 2: Direct script execution
+### Method 3: Direct script execution
 
 ```bash
 # Generate OKR report directly
-python okr_ingest2.py
+uv run python okr_ingest2.py
 ```
 
 **Note**: The `okr_ingest.py` script is not needed for the current workflow as `okr_ingest2.py` fetches all required data directly.

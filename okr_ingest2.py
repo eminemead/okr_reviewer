@@ -87,7 +87,7 @@ def main(args):
         rows = conn.execute("""
             SELECT fellow_ad_account FROM onvo_employee_fellow_maturity_info_1d_a
             WHERE fellow_emp_status_name = '在职' AND is_intern = false AND is_fellow = true AND fellow_ad_account IS NOT NULL
-            LIMIT 3000
+            LIMIT 6000
         """).fetchall()
         fellow_ad_accounts = [fa for (fa,) in rows if fa]
     finally:

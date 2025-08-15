@@ -13,6 +13,17 @@ class OKRMetricsExtractor:
     def __init__(self, markdown_file: str):
         self.markdown_file = markdown_file
         self.metrics_data = []
+        # Track all encountered (owner, period) pairs to ensure completeness later
+        self.owner_period_pairs = set()
+    
+    def _normalize_period_label(self, raw_period: str) -> Optional[str]:
+        """Normalize period to month-only label like '8 月'. Return None if no month found."""
+        # Match forms like '2025 年 8 月', '2025年8月', '8月', ' 8 月 '
+        m = re.search(r'(?:\d{4}\s*年\s*)?([1-9]|1[0-2])\s*月', raw_period)
+        if not m:
+            return None
+        month = int(m.group(1))
+        return f"{month} 月"
         
     def extract_metrics(self) -> List[Dict]:
         """Extract metrics from the markdown file."""
@@ -34,6 +45,9 @@ class OKRMetricsExtractor:
                 periods = self._extract_periods(report)
                 
                 for period, objectives in periods:
+                    # Record this owner-period even if no metrics matched
+                    self.owner_period_pairs.add((owner, period))
+                    # If objectives list is empty, no metrics will be extracted (which is correct)
                     for objective in objectives:
                         metrics = self._extract_metrics_from_objective(objective, owner, period)
                         self.metrics_data.extend(metrics)
@@ -53,11 +67,17 @@ class OKRMetricsExtractor:
         period_matches = re.findall(period_pattern, report, re.DOTALL)
         
         for period_match in period_matches:
-            period = period_match[0].strip()
+            period_raw = period_match[0].strip()
+            period = self._normalize_period_label(period_raw)
+            if not period:
+                # Skip non-month periods
+                continue
             period_content = period_match[1].strip()
             
-            # Skip if no objectives
+            # Handle periods with no objectives - still record them but with empty objectives list
             if '_No objectives for this period._' in period_content:
+                # Return empty objectives list instead of skipping
+                periods.append((period, []))
                 continue
             
             # Extract objectives
@@ -88,67 +108,74 @@ class OKRMetricsExtractor:
         # Define metric patterns
         metric_patterns = {
             '新增建联量': [
-                r'新增建联[≥>]*(\d+)',
-                r'建联[≥>]*(\d+)',
-                r'新增建联量[：:]\s*(\d+)',
-                r'建联量[：:]\s*(\d+)',
-                r'新增建联(\d+)人',
-                r'建联(\d+)人',
-                r'新增建联(\d+)组',
-                r'建联(\d+)组',
-                r'新增建联(\d+)个',
-                r'建联(\d+)个',
-                r'新增建联(\d+)批',
-                r'建联(\d+)批'
+                r'新增?建联[≥>=\s：:]*?(\d+)',
+                r'建联量[≥>=\s：:]*?(\d+)',
+                r'(?:新增)?建联[（(（]?(\d+)[）)]?人',
+                r'(?:新增)?建联[（(（]?(\d+)[）)]?组',
+                r'(?:新增)?建联[（(（]?(\d+)[）)]?个',
+                r'(?:新增)?建联[（(（]?(\d+)[）)]?批',
+                r'(\d+)人[^\n]*建联',
+                r'(\d+)组[^\n]*建联',
+                r'(\d+)个[^\n]*建联',
+                r'(\d+)批[^\n]*建联'
             ],
             '试驾量': [
-                r'试驾[≥>]*(\d+)',
-                r'试驾量[≥>]*(\d+)',
-                r'试驾(\d+)个',
-                r'试驾(\d+)组',
-                r'试驾(\d+)批',
-                r'试驾(\d+)人次',
-                r'试驾(\d+)次'
+                r'(?:试乘试驾|试乘|试驾)[≥>=\s：:]*?(\d+)',
+                r'(?:试乘试驾|试乘|试驾)量[≥>=\s：:]*?(\d+)',
+                r'(?:试乘试驾|试乘|试驾)[（(（]?(\d+)[）)]?个',
+                r'(?:试乘试驾|试乘|试驾)[（(（]?(\d+)[）)]?组',
+                r'(?:试乘试驾|试乘|试驾)[（(（]?(\d+)[）)]?批',
+                r'(?:试乘试驾|试乘|试驾)[（(（]?(\d+)[）)]?人次',
+                r'(?:试乘试驾|试乘|试驾)[（(（]?(\d+)[）)]?次',
+                r'(\d+)[^\n]*?(?:试乘试驾|试乘|试驾)'
             ],
             '锁单量': [
-                r'锁单[≥>]*(\d+)',
-                r'锁单量[≥>]*(\d+)',
-                r'锁单(\d+)台',
-                r'锁单(\d+)辆',
-                r'锁单(\d+)个',
-                r'锁单(\d+)单',
+                r'(?:锁单|下单|下订|订车|成交)[≥>=\s：:]*?(\d+)',
+                r'(?:锁单|下单|下订|订车|成交)量[≥>=\s：:]*?(\d+)',
+                r'(?:锁单|下单|下订|订车|成交)[（(（]?(\d+)[）)]?台',
+                r'(?:锁单|下单|下订|订车|成交)[（(（]?(\d+)[）)]?辆',
+                r'(?:锁单|下单|下订|订车|成交)[（(（]?(\d+)[）)]?个',
+                r'(?:锁单|下单|下订|订车|成交)[（(（]?(\d+)[）)]?单',
                 r'L60锁单(\d+)',
-                r'L90锁单(\d+)'
+                r'L90锁单(\d+)',
+                r'(\d+)台[^\n]*?(?:锁单|下单|下订|订车|成交)'
             ],
             '交付量': [
-                r'交付[≥>]*(\d+)',
-                r'交付量[≥>]*(\d+)',
-                r'交付(\d+)台',
-                r'交付(\d+)辆',
-                r'交付(\d+)个',
-                r'交付(\d+)单',
+                r'(?:交付|交车|提车)[≥>=\s：:]*?(\d+)',
+                r'(?:交付|交车|提车)量[≥>=\s：:]*?(\d+)',
+                r'(?:交付|交车|提车)[（(（]?(\d+)[）)]?台',
+                r'(?:交付|交车|提车)[（(（]?(\d+)[）)]?辆',
+                r'(?:交付|交车|提车)[（(（]?(\d+)[）)]?个',
+                r'(?:交付|交车|提车)[（(（]?(\d+)[）)]?单',
                 r'L60交付(\d+)',
-                r'L90交付(\d+)'
+                r'L90交付(\d+)',
+                r'(\d+)台[^\n]*?(?:交付|交车|提车)'
             ]
         }
         
         # Extract metrics for each type
         for metric_type, patterns in metric_patterns.items():
+            # Avoid counting the same number multiple times for the same objective and metric_type
+            seen_values_for_metric: set[int] = set()
             for pattern in patterns:
                 matches = re.findall(pattern, objective)
                 for match in matches:
                     try:
                         value = int(match)
-                        metrics.append({
-                            'owner': owner,
-                            'period': period,
-                            'metric_type': metric_type,
-                            'value': value,
-                            'unit': self._get_unit(metric_type),
-                            'objective': objective[:200] + '...' if len(objective) > 200 else objective
-                        })
                     except ValueError:
                         continue
+                    # De-duplicate overlapping regex captures that yield the same numeric value
+                    if value in seen_values_for_metric:
+                        continue
+                    seen_values_for_metric.add(value)
+                    metrics.append({
+                        'owner': owner,
+                        'period': period,
+                        'metric_type': metric_type,
+                        'value': value,
+                        'unit': self._get_unit(metric_type),
+                        'objective': objective[:200] + '...' if len(objective) > 200 else objective
+                    })
         
         return metrics
     
@@ -177,6 +204,9 @@ class OKRMetricsExtractor:
                 value INTEGER,
                 unit VARCHAR,
                 objective TEXT,
+                mate_fellow_nh_name VARCHAR,
+                fellow_city_company_name VARCHAR,
+                leader_workday_title VARCHAR,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -184,10 +214,75 @@ class OKRMetricsExtractor:
         # Convert to DataFrame and insert
         if self.metrics_data:
             df = pd.DataFrame(self.metrics_data)
-            # Add an id column to the DataFrame
+            # Drop exact duplicate rows to prevent repeated records
+            df.drop_duplicates(
+                subset=['owner', 'period', 'metric_type', 'value', 'unit'],
+                inplace=True
+            )
+            df.reset_index(drop=True, inplace=True)
+            # Collapse multiple values within the same owner/period/metric_type to a single logical record
+            # Strategy: keep the maximum value per group, and keep a representative objective
+            df = (
+                df.sort_values('value')
+                  .groupby(['owner', 'period', 'metric_type', 'unit'], as_index=False)
+                  .agg({'value': 'max', 'objective': 'first'})
+            )
+            
+            # Ensure every (owner, period) has all 4 metric types, with NULL value if missing
+            tracked_metrics = ['新增建联量', '试驾量', '锁单量', '交付量']
+            if self.owner_period_pairs:
+                all_pairs_df = pd.DataFrame(list(self.owner_period_pairs), columns=['owner', 'period'])
+                metrics_df = pd.DataFrame({'metric_type': tracked_metrics})
+                # Cartesian product to generate full grid
+                all_pairs_df['key'] = 1
+                metrics_df['key'] = 1
+                full_grid = all_pairs_df.merge(metrics_df, on='key').drop(columns=['key'])
+                # Left join existing values
+                df = full_grid.merge(df, on=['owner', 'period', 'metric_type'], how='left')
+                # Fill unit using mapping when missing
+                unit_map = {
+                    '新增建联量': '人',
+                    '试驾量': '组',
+                    '锁单量': '台',
+                    '交付量': '台'
+                }
+                df['unit'] = df['unit'].fillna(df['metric_type'].map(unit_map))
+                # Ensure integer nullable dtype for value so NULLs are preserved
+                try:
+                    df['value'] = df['value'].astype('Int64')
+                except Exception:
+                    pass
+            # Add an id column to the DataFrame after de-duplication
             df['id'] = range(1, len(df) + 1)
             con.execute("DELETE FROM okr_metrics")  # Clear existing data
+            # Add a unique index to protect against duplicates at the DB level
+            con.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_okr_unique ON okr_metrics(owner, period, metric_type, value, unit)")
+            con.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_okr_unique2 ON okr_metrics(owner, period, metric_type)")
             con.execute("INSERT INTO okr_metrics (id, owner, period, metric_type, value, unit, objective) SELECT id, owner, period, metric_type, value, unit, objective FROM df")
+            
+            # Attempt to enrich with employee attributes if the source table exists
+            try:
+                exists = con.execute("""
+                    SELECT COUNT(*)
+                    FROM information_schema.tables 
+                    WHERE table_name = 'onvo_employee_fellow_maturity_info_1d_a'
+                """).fetchone()[0]
+                if exists:
+                    # Ensure columns exist (idempotent)
+                    con.execute("ALTER TABLE okr_metrics ADD COLUMN IF NOT EXISTS mate_fellow_nh_name VARCHAR")
+                    con.execute("ALTER TABLE okr_metrics ADD COLUMN IF NOT EXISTS fellow_city_company_name VARCHAR")
+                    con.execute("ALTER TABLE okr_metrics ADD COLUMN IF NOT EXISTS fellow_workday_cn_title VARCHAR")
+                    # Populate via left join
+                    con.execute("""
+                        UPDATE okr_metrics AS m
+                        SET mate_fellow_nh_name = e.mate_fellow_nh_name,
+                            fellow_city_company_name = e.fellow_city_company_name,
+                            fellow_workday_cn_title = e.fellow_workday_cn_title
+                        FROM onvo_employee_fellow_maturity_info_1d_a AS e
+                        WHERE m.owner = e.fellow_ad_account
+                    """)
+            except Exception as _:
+                pass
         
         return con
     
@@ -221,17 +316,27 @@ class OKRMetricsExtractor:
         """).df()
 
 def main():
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Extract OKR metrics from markdown file")
+    parser.add_argument("markdown_file", nargs="?", default="okr_report_20250804_145834.md",
+                       help="Path to the OKR markdown file (default: okr_report_20250804_145834.md)")
+    parser.add_argument("--db-path", default="okr_metrics.db",
+                       help="Path to the DuckDB database file (default: okr_metrics.db)")
+    
+    args = parser.parse_args()
+    
     # Initialize extractor
-    extractor = OKRMetricsExtractor('okr_report_20250804_145834.md')
+    extractor = OKRMetricsExtractor(args.markdown_file)
     
     # Extract metrics
-    print("Extracting metrics from OKR report...")
+    print(f"Extracting metrics from OKR report: {args.markdown_file}")
     metrics = extractor.extract_metrics()
     print(f"Extracted {len(metrics)} metrics")
     
     # Create DuckDB table
-    print("Creating DuckDB table...")
-    con = extractor.create_duckdb_table('okr_metrics.db')
+    print(f"Creating DuckDB table: {args.db_path}")
+    con = extractor.create_duckdb_table(args.db_path)
     
     # Get summaries
     print("\nMetrics Summary by Owner and Period:")
@@ -264,7 +369,7 @@ def main():
     print(result)
     
     con.close()
-    print(f"\nData saved to okr_metrics.db with {len(metrics)} records")
+    print(f"\nData saved to {args.db_path} with {len(metrics)} records")
 
 if __name__ == "__main__":
     main()
