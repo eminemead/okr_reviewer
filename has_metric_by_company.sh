@@ -1,4 +1,7 @@
-uv run python - << 'PY'
+# Set the period variable (default to '8 月' if not provided)
+export PERIOD=${1:-"8 月"}
+
+uv run python - << PY
 import duckdb, os
 import pandas as pd
 import numpy as np
@@ -7,9 +10,12 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# Get period from environment variable
+period = os.environ.get('PERIOD', '8 月')
+
 DB='/Users/xiaofei.yin/dspy/OKR_reviewer/okr_metrics.db'
 con=duckdb.connect(DB, read_only=True)
-q = """
+q = f"""
 WITH base AS (
   SELECT COALESCE(e.fellow_city_company_name, 'Unknown') AS company_name,
          m.metric_type,
@@ -17,7 +23,7 @@ WITH base AS (
   FROM okr_metrics m
   LEFT JOIN employee_fellow e
     ON m.owner = e.fellow_ad_account
-  WHERE m.period = '8 月'
+  WHERE m.period = '{period}'
 )
 SELECT company_name, metric_type,
        COUNT(*) AS total,
@@ -63,13 +69,13 @@ ax = sns.heatmap(heat, annot=labels, fmt='', cmap='Reds', vmin=0, vmax=100, cbar
 ax.xaxis.set_label_position('top')
 ax.xaxis.tick_top()
 plt.xlabel('Metric Type', labelpad=10)
-plt.title('August Has-Metric Coverage by Company and Metric Type (higher is better)')
+plt.title(f'{period} Has-Metric Coverage by Company and Metric Type (higher is better)')
 plt.ylabel('City Company')
 plt.tight_layout()
 
 outdir='/Users/xiaofei.yin/dspy/OKR_reviewer/outputs/plots'
 os.makedirs(outdir, exist_ok=True)
-path_png=os.path.join(outdir,'has_metric_august_by_company.png')
+path_png=os.path.join(outdir,f'has_metric_{period.replace(" ", "_")}_by_company.png')
 plt.savefig(path_png, dpi=200)
 print('Saved plot (columns ordered):', path_png)
 PY

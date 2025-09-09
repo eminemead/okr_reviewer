@@ -83,11 +83,15 @@ def okr_to_markdown(user, okr_data):
 def main(args):
     conn = duckdb.connect(args.db_path)
     try:
-        # Query the new source table with filters, ensuring fellow_ad_account is not null, and limit to 500 rows
+        # Query the new source table with filters, ensuring fellow_ad_account is not null, and limit to 10k rows
         rows = conn.execute("""
             SELECT fellow_ad_account FROM onvo_employee_fellow_maturity_info_1d_a
-            WHERE fellow_emp_status_name = '在职' AND is_intern = false AND is_fellow = true AND fellow_ad_account IS NOT NULL
-            LIMIT 6000
+            WHERE 
+                fellow_emp_status_name = '在职'
+                AND is_intern = FALSE
+                AND (is_fellow = TRUE OR is_service_fellow = TRUE)
+                AND fellow_ad_account IS NOT NULL
+            LIMIT 10000
         """).fetchall()
         fellow_ad_accounts = [fa for (fa,) in rows if fa]
     finally:
