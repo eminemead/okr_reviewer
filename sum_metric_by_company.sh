@@ -75,7 +75,10 @@ plt.tight_layout()
 
 outdir='/Users/xiaofei.yin/dspy/OKR_reviewer/outputs/plots'
 os.makedirs(outdir, exist_ok=True)
-path_png=os.path.join(outdir,f'sum_metric_{period.replace(" ", "_")}_by_company.png')
-plt.savefig(path_png, dpi=200)
-print('Saved plot (columns ordered):', path_png)
+import time
+ts = time.strftime('%Y%m%d_%H%M%S')
+base = f'sum_metric_{period.replace(" ", "_")}_by_company'
+path_png_ts = os.path.join(outdir, f'{base}_{ts}.png')
+plt.savefig(path_png_ts, dpi=200)
+print('Saved plot (timestamped):', path_png_ts)
 PY
