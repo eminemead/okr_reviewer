@@ -8,7 +8,6 @@ The `main_orchestrator.py` script provides a single command to run the entire OK
 2. **Extract Metrics** - Parse reports and store in DuckDB
 3. **Export Data** - Create CSV files for analysis
 4. **Generate Insights** - Create summary analysis
-5. **Start Dashboard** - Launch FastHTML web interface
 
 ## Quick Start
 
@@ -50,7 +49,6 @@ uv run python main_orchestrator.py --okr_limit 10 --port 9000
    - `extract_okr_metrics.py`
    - `export_metrics.py`
    - `summary_insights.py`
-   - `fasthtml_dashboard.py`
 
 ## Pipeline Steps
 
@@ -75,10 +73,6 @@ uv run python main_orchestrator.py --okr_limit 10 --port 9000
 - Creates analysis and insights
 - Shows top performers and trends
 
-### Step 5: Start Dashboard
-- Calls `fasthtml_dashboard.py`
-- Starts web server on specified port
-- Provides interactive visualization
 
 ## Output Files
 

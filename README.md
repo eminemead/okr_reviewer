@@ -71,9 +71,6 @@ uv run python export_metrics.py
 
 # Generate insights
 uv run python summary_insights.py
-
-# Start dashboard
-uv run python fasthtml_dashboard.py
 ```
 
 ### Method 3: Direct script execution

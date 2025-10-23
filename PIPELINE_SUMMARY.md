@@ -8,7 +8,7 @@ Created a **centralized control flow** for the OKR project that orchestrates all
 
 ### Before (Manual Process)
 ```
-User → Run Script 1 → Run Script 2 → Run Script 3 → Run Script 4 → Run Script 5
+User → Run Script 1 → Run Script 2 → Run Script 3 → Run Script 4
 ```
 
 ### After (Orchestrated Pipeline)
@@ -33,14 +33,9 @@ User → Single Command → Automated Pipeline → Complete Results
    - Exports summary and detailed data
 
 4. **Generate Insights** (`summary_insights.py`)
-   - Analyzes performance trends
-   - Identifies top performers
-   - Creates actionable insights
-
-5. **Start Dashboard** (`fasthtml_dashboard.py`)
-   - Launches interactive web interface
-   - Real-time data visualization
-   - Filtering and charting capabilities
+- Analyzes performance trends
+- Identifies top performers
+- Creates actionable insights
 
 ## 🚀 Usage Options
 
@@ -50,7 +45,7 @@ User → Single Command → Automated Pipeline → Complete Results
 uv run python main_orchestrator.py
 
 # Custom configuration
-uv run python main_orchestrator.py --okr_limit 5 --port 8080 --skip-dashboard
+uv run python main_orchestrator.py --okr_limit 5
 ```
 
 ### Option 2: Shell Wrapper
@@ -59,7 +54,7 @@ uv run python main_orchestrator.py --okr_limit 5 --port 8080 --skip-dashboard
 ./run_pipeline.sh
 
 # Custom settings
-./run_pipeline.sh 5 true 8080  # OKR limit, skip dashboard, port
+./run_pipeline.sh 5  # OKR limit
 ```
 
 ### Option 3: Individual Scripts
@@ -69,7 +64,6 @@ uv run python generate_okr_report.py
 uv run python extract_okr_metrics.py
 uv run python export_metrics.py
 uv run python summary_insights.py
-uv run python fasthtml_dashboard.py
 ```
 
 ## 🔧 Key Features
@@ -101,10 +95,6 @@ uv run python fasthtml_dashboard.py
 - `okr_metrics_all.csv` - Complete dataset
 - `okr_metrics_summary.csv` - Aggregated metrics
 
-### Web Interface
-- Interactive dashboard at `http://127.0.0.1:8000`
-- Real-time filtering and visualization
-
 ## 🛠️ Technical Implementation
 
 ### Core Components
@@ -129,8 +119,6 @@ uv run python fasthtml_dashboard.py
 - **uv**: Package management
 - **DuckDB**: Database storage
 - **Pandas**: Data processing
-- **FastHTML**: Web dashboard
-- **Chart.js**: Data visualization
 
 ## 📈 Benefits
 
@@ -170,7 +158,7 @@ uv run python fasthtml_dashboard.py
 
 ## 🎉 Success Metrics
 
-- **Reduced Manual Steps**: 5 → 1 command
+- **Reduced Manual Steps**: 4 → 1 command
 - **Improved Reliability**: Built-in error handling
 - **Enhanced Monitoring**: Detailed logging
 - **Better Documentation**: Comprehensive guides
@@ -181,7 +169,7 @@ uv run python fasthtml_dashboard.py
 ### Development Workflow
 ```bash
 # Quick test with minimal data
-./run_pipeline.sh 1 true 8000
+./run_pipeline.sh 1
 
 # Full development run
 uv run python main_orchestrator.py --okr_limit 3
@@ -190,19 +178,19 @@ uv run python main_orchestrator.py --okr_limit 3
 ### Production Deployment
 ```bash
 # Automated daily run
-0 9 * * * cd /path/to/okr_reviewer && ./run_pipeline.sh 5 false 8000
+0 9 * * * cd /path/to/okr_reviewer && ./run_pipeline.sh 5
 
 # CI/CD integration
 - name: Run OKR Pipeline
-  run: |
-    cd okr_reviewer
-    uv run python main_orchestrator.py --skip-dashboard
+run: |
+cd okr_reviewer
+uv run python main_orchestrator.py
 ```
 
 ### Data Analysis
 ```bash
 # Generate insights only
-uv run python main_orchestrator.py --skip-dashboard
+uv run python main_orchestrator.py
 
 # Custom analysis
 uv run python summary_insights.py

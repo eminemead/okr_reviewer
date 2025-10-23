@@ -7,10 +7,9 @@ This script orchestrates the entire OKR processing pipeline:
 2. Extract metrics from reports into DuckDB
 3. Export data to CSV files
 4. Generate insights and analysis
-5. Start the FastHTML dashboard
 
 Usage:
-    python main_orchestrator.py [--okr_limit N] [--skip-dashboard] [--port PORT]
+    python main_orchestrator.py [--okr_limit N]
 """
 
 import os
@@ -22,12 +21,11 @@ from datetime import datetime
 from pathlib import Path
 
 class OKRPipelineOrchestrator:
-    def __init__(self, okr_limit=2, skip_dashboard=False, port=8000):
+class OKRPipelineOrchestrator:
+    def __init__(self, okr_limit=2):
         self.okr_limit = okr_limit
-        self.skip_dashboard = skip_dashboard
-        self.port = port
-        self.start_time = datetime.now()
-        
+self.start_time = datetime.now()
+    
     def log(self, message, level="INFO"):
         """Log messages with timestamp and level."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -78,11 +76,10 @@ class OKRPipelineOrchestrator:
         
         # Check for required scripts
         required_scripts = [
-            "generate_okr_report.py",
-            "extract_okr_metrics.py", 
-            "export_metrics.py",
-            "summary_insights.py",
-            "fasthtml_dashboard.py"
+        "generate_okr_report.py",
+        "extract_okr_metrics.py", 
+        "export_metrics.py",
+        "summary_insights.py"
         ]
         
         missing_scripts = []
@@ -160,73 +157,11 @@ class OKRPipelineOrchestrator:
             "Insights Generation"
         )
         
-    def step5_start_dashboard(self):
-        """Step 5: Start the FastHTML dashboard."""
-        if self.skip_dashboard:
-            self.log("Dashboard startup skipped (--skip-dashboard flag)")
-            return True
-            
-        self.log("=" * 60)
-        self.log("STEP 5: Starting Dashboard")
-        self.log("=" * 60)
-        
-        # Update dashboard port if needed
-        dashboard_script = Path("fasthtml_dashboard.py")
-        if dashboard_script.exists():
-            # Read current content
-            with open(dashboard_script, 'r') as f:
-                content = f.read()
-            
-            # Update port if different from default
-            if self.port != 8000:
-                # Replace the serve call with new port
-                import re
-                content = re.sub(
-                    r'serve\(host="0\.0\.0\.0", port=\d+\)',
-                    f'serve(host="0.0.0.0", port={self.port})',
-                    content
-                )
-                
-                with open(dashboard_script, 'w') as f:
-                    f.write(content)
-                    
-                self.log(f"Updated dashboard port to {self.port}")
-        
-        # Start dashboard in background
-        cmd = ["uv", "run", "python", "fasthtml_dashboard.py"]
-        self.log(f"Starting dashboard: {' '.join(cmd)}")
-        
-        try:
-            # Start in background
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            
-            # Wait a moment for startup
-            time.sleep(3)
-            
-            if process.poll() is None:
-                self.log(f"Dashboard started successfully on port {self.port}")
-                self.log(f"Access at: http://127.0.0.1:{self.port}")
-                return True
-            else:
-                stdout, stderr = process.communicate()
-                self.log(f"Dashboard failed to start", "ERROR")
-                if stdout: print("STDOUT:", stdout)
-                if stderr: print("STDERR:", stderr)
-                return False
-                
-        except Exception as e:
-            self.log(f"Error starting dashboard: {e}", "ERROR")
-            return False
-            
+    
     def run_pipeline(self):
         """Run the complete OKR pipeline."""
         self.log("Starting OKR Pipeline Orchestrator")
-        self.log(f"Configuration: OKR Limit={self.okr_limit}, Skip Dashboard={self.skip_dashboard}, Port={self.port}")
+        self.log(f"Configuration: OKR Limit={self.okr_limit}")
         
         # Check prerequisites
         if not self.check_prerequisites():
@@ -235,11 +170,10 @@ class OKRPipelineOrchestrator:
             
         # Run pipeline steps
         steps = [
-            ("Generate Reports", self.step1_generate_reports),
-            ("Extract Metrics", self.step2_extract_metrics),
-            ("Export Data", self.step3_export_data),
-            ("Generate Insights", self.step4_generate_insights),
-            ("Start Dashboard", self.step5_start_dashboard)
+        ("Generate Reports", self.step1_generate_reports),
+        ("Extract Metrics", self.step2_extract_metrics),
+        ("Export Data", self.step3_export_data),
+        ("Generate Insights", self.step4_generate_insights)
         ]
         
         success_count = 0
@@ -275,24 +209,11 @@ def main():
         default=2,
         help="Number of OKRs to fetch per user (default: 2)"
     )
-    parser.add_argument(
-        "--skip-dashboard", 
-        action="store_true",
-        help="Skip starting the dashboard (run all other steps)"
-    )
-    parser.add_argument(
-        "--port", 
-        type=int, 
-        default=8000,
-        help="Port for the dashboard (default: 8000)"
-    )
     
     args = parser.parse_args()
     
     orchestrator = OKRPipelineOrchestrator(
-        okr_limit=args.okr_limit,
-        skip_dashboard=args.skip_dashboard,
-        port=args.port
+        okr_limit=args.okr_limit
     )
     
     success = orchestrator.run_pipeline()

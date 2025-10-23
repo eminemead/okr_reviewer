@@ -63,7 +63,7 @@ def generate_okr_report(okr_limit=2):
         # List the generated report files
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         reports_dir = os.path.join("outputs", "reports")
-        expected_filename = os.path.join(reports_dir, f"okr_report_{timestamp}.md")
+        expected_filename = os.path.join(reports_dir, f"okr_report_manager_{timestamp}.md")
         if os.path.exists(expected_filename):
             print(f"Generated report: {expected_filename}")
             file_size = os.path.getsize(expected_filename)

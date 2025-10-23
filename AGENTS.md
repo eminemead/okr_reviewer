@@ -3,7 +3,7 @@
 ## Build/Lint/Test Commands
 
 - **Run full pipeline**: `uv run python main_orchestrator.py --okr_limit 5`
-- **Run single test user**: `uv run python main_orchestrator.py --okr_limit 1 --skip-dashboard`
+- **Run single test user**: `uv run python main_orchestrator.py --okr_limit 1`
 - **Go-to sequence**:
   1. `uv run python generate_okr_report.py --okr_limit 2` (test OKR data in okr_report_*.md)
   2. `uv run python extract_okr_metrics.py outputs/reports/okr_report_*.md` (test data in okr_metrics.db)
@@ -16,9 +16,8 @@
 This is an OKR metrics extraction and visualization system using:
 - **Data Source**: Feishu API OKR data
 - **Storage**: DuckDB database (`okr_metrics.db`)
-- **Dashboard**: FastHTML web interface with Chart.js
 - **Pipeline**: Orchestrated via `main_orchestrator.py`
-- **Key Components**: API ingestion → metrics extraction → CSV export → web dashboard
+- **Key Components**: API ingestion → metrics extraction → CSV export → insights
 
 ## Code Style Guidelines
 
