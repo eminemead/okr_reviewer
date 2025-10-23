@@ -7,6 +7,7 @@ This script generates OKR reports with timestamped filenames to avoid overwritin
 
 import os
 import sys
+import time
 from datetime import datetime
 import subprocess
 
@@ -40,7 +41,10 @@ def generate_okr_report(okr_limit=2):
     print(f"Running: {' '.join(cmd)}")
     print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("-" * 50)
-    
+
+    # Start timing the OKR data fetching
+    start_time = time.time()
+
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         print("STDOUT:")
@@ -49,8 +53,12 @@ def generate_okr_report(okr_limit=2):
             print("STDERR:")
             print(result.stderr)
         print("-" * 50)
-        print("OKR report generation completed successfully!")
-        
+
+        # Calculate and display duration
+        end_time = time.time()
+        duration = end_time - start_time
+        print(f"OKR report generation completed successfully!")
+        print(f"Duration: {duration/60:.2f} minutes")
         # List the generated report files
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         reports_dir = os.path.join("outputs", "reports")

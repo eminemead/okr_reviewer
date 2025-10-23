@@ -47,7 +47,7 @@ pivot['__total__'] = pivot.sum(axis=1)
 pivot = pivot.sort_values('__total__', ascending=False)
 heat = pivot.drop(columns='__total__')
 # Reorder columns
-desired = ['新增建联量','试驾量','锁单量','交付量']
+desired = ['新增建联量','试驾量','锁单量','交付量','建信量','直播','利润','销能','满意度']
 available = [c for c in desired if c in heat.columns]
 # If any extra columns exist, append them after desired order
 extras = [c for c in heat.columns if c not in available]

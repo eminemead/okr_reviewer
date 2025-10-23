@@ -105,8 +105,9 @@ class OKRMetricsExtractor:
         """Extract metrics from a single objective."""
         metrics = []
         
-        # Define metric patterns
+        # Define metric patterns - quantitative metrics extract numbers, binary metrics check for mentions
         metric_patterns = {
+            # Quantitative metrics (extract numbers)
             '新增建联量': [
                 r'新增?建联[≥>=\s：:]*?(\d+)',
                 r'建联量[≥>=\s：:]*?(\d+)',
@@ -150,29 +151,81 @@ class OKRMetricsExtractor:
                 r'L60交付(\d+)',
                 r'L90交付(\d+)',
                 r'(\d+)台[^\n]*?(?:交付|交车|提车)'
+            ],
+            # Binary metrics (1 if mentioned, 0 if not)
+            '建信量': [
+                r'建信[^\n]*?(?:量|触达|次数|场|次|人|组|个|批)',
+                r'(?:量|触达|次数|场|次)[^\n]*?建信',
+                r'建信'
+            ],
+            '直播': [
+                r'直播[^\n]*?(?:场|次|量|次数)',
+                r'(?:场|次|量|次数)[^\n]*?直播',
+                r'直播'
+            ],
+            '利润': [
+                r'利润',
+                r'盈利',
+                r'收益'
+            ],
+            '销能': [
+                r'销能',
+                r'招聘',
+                r'招人',
+                r'招聘[^\n]*?(?:量|人数|人次|次)',
+                r'招人[^\n]*?(?:量|人数|人次|次)',
+                r'(?:量|人数|人次|次)[^\n]*?(?:招聘|招人)'
+            ],
+            '满意度': [
+                r'满意度',
+                r'满意[^\n]*?(?:率|度)',
+                r'用户[^\n]*?满意',
+                r'客户[^\n]*?满意'
             ]
         }
         
+        # Define which metrics are binary vs quantitative
+        binary_metrics = {'建信量', '直播', '利润', '销能', '满意度'}
+        quantitative_metrics = {'新增建联量', '试驾量', '锁单量', '交付量'}
+
         # Extract metrics for each type
         for metric_type, patterns in metric_patterns.items():
-            # Avoid counting the same number multiple times for the same objective and metric_type
-            seen_values_for_metric: set[int] = set()
-            for pattern in patterns:
-                matches = re.findall(pattern, objective)
-                for match in matches:
-                    try:
-                        value = int(match)
-                    except ValueError:
-                        continue
-                    # De-duplicate overlapping regex captures that yield the same numeric value
-                    if value in seen_values_for_metric:
-                        continue
-                    seen_values_for_metric.add(value)
+            if metric_type in quantitative_metrics:
+                # Quantitative metrics: extract numbers
+                seen_values_for_metric: set[int] = set()
+                for pattern in patterns:
+                    matches = re.findall(pattern, objective)
+                    for match in matches:
+                        try:
+                            value = int(match)
+                        except ValueError:
+                            continue
+                        # De-duplicate overlapping regex captures that yield the same numeric value
+                        if value in seen_values_for_metric:
+                            continue
+                        seen_values_for_metric.add(value)
+                        metrics.append({
+                            'owner': owner,
+                            'period': period,
+                            'metric_type': metric_type,
+                            'value': value,
+                            'unit': self._get_unit(metric_type),
+                            'objective': objective[:200] + '...' if len(objective) > 200 else objective
+                        })
+            elif metric_type in binary_metrics:
+                # Binary metrics: check if any pattern matches (1 if mentioned, 0 if not)
+                mentioned = False
+                for pattern in patterns:
+                    if re.search(pattern, objective, re.IGNORECASE):
+                        mentioned = True
+                        break
+                # Only add if mentioned (value=1), we'll handle value=0 at the database level
+                if mentioned:
                     metrics.append({
                         'owner': owner,
                         'period': period,
                         'metric_type': metric_type,
-                        'value': value,
+                        'value': 1,
                         'unit': self._get_unit(metric_type),
                         'objective': objective[:200] + '...' if len(objective) > 200 else objective
                     })
@@ -182,10 +235,17 @@ class OKRMetricsExtractor:
     def _get_unit(self, metric_type: str) -> str:
         """Get the unit for a metric type."""
         units = {
+            # Quantitative metrics
             '新增建联量': '人',
             '试驾量': '组',
             '锁单量': '台',
-            '交付量': '台'
+            '交付量': '台',
+            # Binary metrics
+            '建信量': 'mention',
+            '直播': 'mention',
+            '利润': 'mention',
+            '销能': 'mention',
+            '满意度': 'mention'
         }
         return units.get(metric_type, '')
     
@@ -228,8 +288,8 @@ class OKRMetricsExtractor:
                   .agg({'value': 'max', 'objective': 'first'})
             )
             
-            # Ensure every (owner, period) has all 4 metric types, with NULL value if missing
-            tracked_metrics = ['新增建联量', '试驾量', '锁单量', '交付量']
+            # Ensure every (owner, period) has all 9 metric types, with NULL value if missing
+            tracked_metrics = ['新增建联量', '试驾量', '锁单量', '交付量', '建信量', '直播', '利润', '销能', '满意度']
             if self.owner_period_pairs:
                 all_pairs_df = pd.DataFrame(list(self.owner_period_pairs), columns=['owner', 'period'])
                 metrics_df = pd.DataFrame({'metric_type': tracked_metrics})
@@ -244,7 +304,12 @@ class OKRMetricsExtractor:
                     '新增建联量': '人',
                     '试驾量': '组',
                     '锁单量': '台',
-                    '交付量': '台'
+                    '交付量': '台',
+                    '建信量': 'mention',
+                    '直播': 'mention',
+                    '利润': 'mention',
+                    '销能': 'mention',
+                    '满意度': 'mention'
                 }
                 df['unit'] = df['unit'].fillna(df['metric_type'].map(unit_map))
                 # Ensure integer nullable dtype for value so NULLs are preserved

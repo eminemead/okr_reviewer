@@ -1,0 +1,70 @@
+# Metrics view YAML
+# Reference documentation: https://docs.rilldata.com/reference/project-files/metrics-views
+# This file was generated using AI.
+
+version: 1
+type: metrics_view 
+
+display_name: Model Metrics
+model: model
+timeseries: created_at
+
+measures:
+  - name: average_value_measure
+    display_name: Average Value
+    expression: AVG(value)
+    description: The average value across all models.
+    format_preset: humanize
+  - name: total_value_measure
+    display_name: Total Value
+    expression: SUM(value)
+    description: The sum of all values in the models.
+    format_preset: humanize
+  - name: count_fellow
+    display_name: count_fellow
+    expression: COUNT(DISTINCT owner)
+    description: The number of unique FLs in the dataset.
+    format_preset: humanize
+
+  - name: has_metric
+    display_name: Has Metric
+    expression: COUNT(value)
+    description: Count of rows where value is not null. Slice by metric_type using the dimension.
+    format_preset: humanize
+  
+  
+dimensions:
+  - name: period
+    display_name: Period
+    column: period
+  - name: metric_type
+    display_name: Metric Type
+    column: metric_type
+  - name: unit
+    display_name: Unit
+    column: unit
+  - name: objective
+    display_name: Objective
+    column: objective
+  - name: created_at
+    display_name: Created At
+    column: created_at
+  - name: fellow_ad_account
+    display_name: Fellow Ad Account
+    column: fellow_ad_account
+  - name: mate_fellow_nh_name
+    display_name: Mate Fellow Nh Name
+    column: mate_fellow_nh_name
+  - name: fellow_city_company_name
+    display_name: Fellow City Company Name
+    column: fellow_city_company_name
+  - name: leader_workday_title
+    display_name: Leader Workday Title
+    column: leader_workday_title
+  - name: department_5_cn_name
+    display_name: Department 5 Cn Name
+    column: department_5_cn_name
+  - name: department_5_en_name
+    display_name: Department 5 En Name
+    column: department_5_en_name
+

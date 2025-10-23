@@ -9,6 +9,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
+from datetime import datetime
 
 # Get period from environment variable
 period = os.environ.get('PERIOD', '8 月')
@@ -49,7 +50,7 @@ pivot['__avg__'] = pivot.mean(axis=1)
 pivot = pivot.sort_values('__avg__', ascending=False)
 heat = pivot.drop(columns='__avg__')
 # Reorder columns
-desired = ['新增建联量','试驾量','锁单量','交付量']
+desired = ['新增建联量','试驾量','锁单量','交付量','建信量','直播','利润','销能','满意度']
 available = [c for c in desired if c in heat.columns]
 # If any extra columns exist, append them after desired order
 extras = [c for c in heat.columns if c not in available]
@@ -75,7 +76,9 @@ plt.tight_layout()
 
 outdir='/Users/xiaofei.yin/dspy/OKR_reviewer/outputs/plots'
 os.makedirs(outdir, exist_ok=True)
-path_png=os.path.join(outdir,f'has_metric_{period.replace(" ", "_")}_by_company.png')
+# Generate timestamp
+timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+path_png=os.path.join(outdir,f'has_metric_{period.replace(" ", "_")}_by_company_{timestamp}.png')
 plt.savefig(path_png, dpi=200)
 print('Saved plot (columns ordered):', path_png)
 PY
