@@ -101,109 +101,132 @@ class OKRMetricsExtractor:
         
         return objectives
     
+    def _preprocess_objective(self, objective: str) -> str:
+        """Preprocess objective text for better matching."""
+        # Remove markdown headers and formatting
+        objective = re.sub(r'#{1,6}\s*', '', objective)
+        # Normalize Chinese punctuation and spaces
+        objective = re.sub(r'[（）]', '(', objective)
+        objective = re.sub(r'[）]', ')', objective)
+        objective = re.sub(r'[：]', ':', objective)
+        objective = re.sub(r'\s+', ' ', objective).strip()
+        return objective
+
+    def _parse_value(self, match_str: str) -> Optional[int]:
+        """Parse numeric value from string, handling units like 万, 千, w."""
+        match_str = match_str.strip()
+        # Match number with optional decimal and unit
+        m = re.match(r'(\d+(?:\.\d+)?)\s*(万|千|w)?', match_str)
+        if not m:
+            return None
+        num_str, unit = m.groups()
+        try:
+            num = float(num_str)
+        except ValueError:
+            return None
+        multiplier = {'万': 10000, '千': 1000, 'w': 10000}.get(unit, 1)
+        return int(num * multiplier)
+
     def _extract_metrics_from_objective(self, objective: str, owner: str, period: str) -> List[Dict]:
         """Extract metrics from a single objective."""
         metrics = []
-        
-        # Define metric patterns - quantitative metrics extract numbers, binary metrics check for mentions
+
+        # Preprocess objective
+        objective = self._preprocess_objective(objective)
+
+        # Define metric patterns - quantitative metrics extract numbers with units, binary metrics check for mentions
         metric_patterns = {
-            # Quantitative metrics (extract numbers)
+            # Quantitative metrics (extract numbers with units)
             '新增建联量': [
-                r'新增?建联[≥>=\s：:]*?(\d+)',
-                r'建联量[≥>=\s：:]*?(\d+)',
-                r'(?:新增)?建联[（(（]?(\d+)[）)]?人',
-                r'(?:新增)?建联[（(（]?(\d+)[）)]?组',
-                r'(?:新增)?建联[（(（]?(\d+)[）)]?个',
-                r'(?:新增)?建联[（(（]?(\d+)[）)]?批',
-                r'(\d+)人[^\n]*建联',
-                r'(\d+)组[^\n]*建联',
-                r'(\d+)个[^\n]*建联',
-                r'(\d+)批[^\n]*建联'
+                r'\b新增?建联[≥>=\s:]*?(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\d]*人?\b',
+                r'\b建联量[≥>=\s:]*?(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\d]*人?\b',
+                r'\b(?:新增)?建联\s*\(\s*(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)\s*\)\s*(?:人|组|个|批)?\b',
+                r'\b(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\n]*人[^\n]*建联\b',
+                r'\b(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\n]*组[^\n]*建联\b',
+                r'\b(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\n]*个[^\n]*建联\b',
+                r'\b(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\n]*批[^\n]*建联\b'
             ],
             '试驾量': [
-                r'(?:试乘试驾|试乘|试驾)[≥>=\s：:]*?(\d+)',
-                r'(?:试乘试驾|试乘|试驾)量[≥>=\s：:]*?(\d+)',
-                r'(?:试乘试驾|试乘|试驾)[（(（]?(\d+)[）)]?个',
-                r'(?:试乘试驾|试乘|试驾)[（(（]?(\d+)[）)]?组',
-                r'(?:试乘试驾|试乘|试驾)[（(（]?(\d+)[）)]?批',
-                r'(?:试乘试驾|试乘|试驾)[（(（]?(\d+)[）)]?人次',
-                r'(?:试乘试驾|试乘|试驾)[（(（]?(\d+)[）)]?次',
-                r'(\d+)[^\n]*?(?:试乘试驾|试乘|试驾)'
+                r'\b(?:试乘试驾|试乘|试驾)[≥>=\s:]*?(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\d]*(?:个|组|批|人次|次)?\b',
+                r'\b(?:试乘试驾|试乘|试驾)量[≥>=\s:]*?(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\d]*(?:个|组|批|人次|次)?\b',
+                r'\b(?:试乘试驾|试乘|试驾)\s*\(\s*(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)\s*\)\s*(?:个|组|批|人次|次)?\b',
+                r'\b(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\n]*(?:试乘试驾|试乘|试驾)\b'
             ],
             '锁单量': [
-                r'(?:锁单|下单|下订|订车|成交)[≥>=\s：:]*?(\d+)',
-                r'(?:锁单|下单|下订|订车|成交)量[≥>=\s：:]*?(\d+)',
-                r'(?:锁单|下单|下订|订车|成交)[（(（]?(\d+)[）)]?台',
-                r'(?:锁单|下单|下订|订车|成交)[（(（]?(\d+)[）)]?辆',
-                r'(?:锁单|下单|下订|订车|成交)[（(（]?(\d+)[）)]?个',
-                r'(?:锁单|下单|下订|订车|成交)[（(（]?(\d+)[）)]?单',
-                r'L60锁单(\d+)',
-                r'L90锁单(\d+)',
-                r'(\d+)台[^\n]*?(?:锁单|下单|下订|订车|成交)'
+                r'\b(?:锁单|下单|下订|订车|成交)[≥>=\s:]*?(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\d]*(?:台|辆|个|单)?\b',
+                r'\b(?:锁单|下单|下订|订车|成交)量[≥>=\s:]*?(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\d]*(?:台|辆|个|单)?\b',
+                r'\b(?:锁单|下单|下订|订车|成交)\s*\(\s*(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)\s*\)\s*(?:台|辆|个|单)?\b',
+                r'\bL60锁单(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)\b',
+                r'\bL90锁单(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)\b',
+                r'\b(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)\s*台[^\n]*(?:锁单|下单|下订|订车|成交)\b'
             ],
             '交付量': [
-                r'(?:交付|交车|提车)[≥>=\s：:]*?(\d+)',
-                r'(?:交付|交车|提车)量[≥>=\s：:]*?(\d+)',
-                r'(?:交付|交车|提车)[（(（]?(\d+)[）)]?台',
-                r'(?:交付|交车|提车)[（(（]?(\d+)[）)]?辆',
-                r'(?:交付|交车|提车)[（(（]?(\d+)[）)]?个',
-                r'(?:交付|交车|提车)[（(（]?(\d+)[）)]?单',
-                r'L60交付(\d+)',
-                r'L90交付(\d+)',
-                r'(\d+)台[^\n]*?(?:交付|交车|提车)'
+                r'\b(?:交付|交车|提车)[≥>=\s:]*?(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\d]*(?:台|辆|个|单)?\b',
+                r'\b(?:交付|交车|提车)量[≥>=\s:]*?(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\d]*(?:台|辆|个|单)?\b',
+                r'\b(?:交付|交车|提车)\s*\(\s*(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)\s*\)\s*(?:台|辆|个|单)?\b',
+                r'\bL60交付(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)\b',
+                r'\bL90交付(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)\b',
+                r'\b(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)\s*台[^\n]*(?:交付|交车|提车)\b'
+            ],
+            '利润值': [
+                r'\b(?:EBIT|利润)[^\n]{0,5}?(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)\b',
+                r'\b(\d+(?:\.\d+)?(?:\s*万|\s*千|\s*w)?)[^\n]{0,5}?(?:EBIT|利润)\b'
             ],
             # Binary metrics (1 if mentioned, 0 if not)
             '建信量': [
-                r'建信[^\n]*?(?:量|触达|次数|场|次|人|组|个|批)',
-                r'(?:量|触达|次数|场|次)[^\n]*?建信',
-                r'建信'
+                r'\b建信[^\n]*?(?:量|触达|次数|场|次|人|组|个|批)\b',
+                r'\b(?:量|触达|次数|场|次)[^\n]*?建信\b',
+                r'\b建信\b'
             ],
             '直播': [
-                r'直播[^\n]*?(?:场|次|量|次数)',
-                r'(?:场|次|量|次数)[^\n]*?直播',
-                r'直播'
+                r'\b直播[^\n]*?(?:场|次|量|次数)\b',
+                r'\b(?:场|次|量|次数)[^\n]*?直播\b',
+                r'\b直播\b'
             ],
             '利润': [
-                r'利润',
-                r'盈利',
-                r'收益'
+                r'\b利润\b',
+                r'\b盈利\b',
+                r'\b收益\b'
             ],
             '销能': [
-                r'销能',
-                r'招聘',
-                r'招人',
-                r'招聘[^\n]*?(?:量|人数|人次|次)',
-                r'招人[^\n]*?(?:量|人数|人次|次)',
-                r'(?:量|人数|人次|次)[^\n]*?(?:招聘|招人)'
+                r'\b销能\b',
+                r'\b招聘[^\n]*?(?:量|人数|人次|次)?\b',
+                r'\b招人[^\n]*?(?:量|人数|人次|次)?\b',
+                r'\b(?:量|人数|人次|次)[^\n]*?(?:招聘|招人)\b'
             ],
             '满意度': [
-                r'满意度',
-                r'满意[^\n]*?(?:率|度)',
-                r'用户[^\n]*?满意',
-                r'客户[^\n]*?满意'
+                r'\b满意度\b',
+                r'\b满意[^\n]*?(?:率|度)\b',
+                r'\b用户[^\n]*?满意\b',
+                r'\b客户[^\n]*?满意\b'
+            ],
+            '利润': [
+                r'\b利润\b',
+                r'\bEBIT[^\n]*?(?:利润|毛利|收益)\b',
+                r'\b(?:利润|毛利|收益)[^\n]*?EBIT\b'
             ]
         }
-        
+
         # Define which metrics are binary vs quantitative
         binary_metrics = {'建信量', '直播', '利润', '销能', '满意度'}
-        quantitative_metrics = {'新增建联量', '试驾量', '锁单量', '交付量'}
+        quantitative_metrics = {'新增建联量', '试驾量', '锁单量', '交付量', '利润值'}
 
         # Extract metrics for each type
+        extracted_values = {metric_type: set() for metric_type in quantitative_metrics}  # For deduplication
         for metric_type, patterns in metric_patterns.items():
             if metric_type in quantitative_metrics:
-                # Quantitative metrics: extract numbers
-                seen_values_for_metric: set[int] = set()
+                # Quantitative metrics: extract numbers with units
                 for pattern in patterns:
                     matches = re.findall(pattern, objective)
                     for match in matches:
-                        try:
-                            value = int(match)
-                        except ValueError:
+                        value = self._parse_value(match)
+                        if value is None or value in extracted_values[metric_type]:
                             continue
-                        # De-duplicate overlapping regex captures that yield the same numeric value
-                        if value in seen_values_for_metric:
+                        # Validation: check if value is reasonable (e.g., not negative, within expected range)
+                        if value < 0 or value > 1000000:  # Adjust range as needed
+                            print(f"Warning: Suspicious value {value} for {metric_type} in objective: {objective[:100]}...")
                             continue
-                        seen_values_for_metric.add(value)
+                        extracted_values[metric_type].add(value)
                         metrics.append({
                             'owner': owner,
                             'period': period,
@@ -212,12 +235,14 @@ class OKRMetricsExtractor:
                             'unit': self._get_unit(metric_type),
                             'objective': objective[:200] + '...' if len(objective) > 200 else objective
                         })
+                        print(f"Extracted {metric_type}: {value} from '{match}' in objective")
             elif metric_type in binary_metrics:
                 # Binary metrics: check if any pattern matches (1 if mentioned, 0 if not)
                 mentioned = False
                 for pattern in patterns:
                     if re.search(pattern, objective, re.IGNORECASE):
                         mentioned = True
+                        print(f"Binary metric {metric_type} mentioned in objective")
                         break
                 # Only add if mentioned (value=1), we'll handle value=0 at the database level
                 if mentioned:
@@ -229,7 +254,12 @@ class OKRMetricsExtractor:
                         'unit': self._get_unit(metric_type),
                         'objective': objective[:200] + '...' if len(objective) > 200 else objective
                     })
-        
+
+        # Flag objectives with multiple conflicting values for manual review
+        for metric_type in quantitative_metrics:
+            if len(extracted_values[metric_type]) > 1:
+                print(f"Warning: Multiple values for {metric_type} in objective: {objective[:100]}... Values: {list(extracted_values[metric_type])}")
+
         return metrics
     
     def _get_unit(self, metric_type: str) -> str:
@@ -240,6 +270,7 @@ class OKRMetricsExtractor:
             '试驾量': '组',
             '锁单量': '台',
             '交付量': '台',
+            '利润值': '元',
             # Binary metrics
             '建信量': 'mention',
             '直播': 'mention',
@@ -293,8 +324,8 @@ class OKRMetricsExtractor:
                   .agg({'value': 'max', 'objective': 'first'})
             )
             
-            # Ensure every (owner, period) has all 9 metric types, with NULL value if missing
-            tracked_metrics = ['新增建联量', '试驾量', '锁单量', '交付量', '建信量', '直播', '利润', '销能', '满意度']
+            # Ensure every (owner, period) has all 10 metric types, with NULL value if missing
+            tracked_metrics = ['新增建联量', '试驾量', '锁单量', '交付量', '建信量', '直播', '利润', '销能', '满意度', '利润值']
             if self.owner_period_pairs:
                 all_pairs_df = pd.DataFrame(list(self.owner_period_pairs), columns=['owner', 'period'])
                 metrics_df = pd.DataFrame({'metric_type': tracked_metrics})
@@ -310,6 +341,7 @@ class OKRMetricsExtractor:
                     '试驾量': '组',
                     '锁单量': '台',
                     '交付量': '台',
+                    '利润值': '元',
                     '建信量': 'mention',
                     '直播': 'mention',
                     '利润': 'mention',
