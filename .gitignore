@@ -12,3 +12,7 @@ okr_metrics*.db
 .aider*
 opencodetmp/
 outputs/
+
+# DuckDB and Harlequin UI files
+duckdb_ui.log
+harlequin.toml
