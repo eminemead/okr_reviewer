@@ -1,0 +1,9 @@
+[project]
+name = "okr_reviewer"
+version = "0.1.0"
+description = "OKR metrics extraction and visualization system"
+dependencies = [
+    "duckdb",
+    "requests",
+    "pandas",
+]

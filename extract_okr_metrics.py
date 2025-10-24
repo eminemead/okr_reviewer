@@ -251,12 +251,17 @@ class OKRMetricsExtractor:
     
     def create_duckdb_table(self, db_path: str = ':memory:'):
         """Create DuckDB table and insert the extracted metrics."""
+        # Generate timestamp for table partitioning
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        table_name = f"okr_metrics_{timestamp}"
+
         # Connect to DuckDB
         con = duckdb.connect(db_path)
-        
-        # Create table
-        con.execute("""
-            CREATE TABLE IF NOT EXISTS okr_metrics (
+
+        # Create table with timestamp partition
+        con.execute(f"""
+            CREATE TABLE IF NOT EXISTS {table_name} (
                 id INTEGER PRIMARY KEY,
                 owner VARCHAR,
                 period VARCHAR,
@@ -319,63 +324,105 @@ class OKRMetricsExtractor:
                     pass
             # Add an id column to the DataFrame after de-duplication
             df['id'] = range(1, len(df) + 1)
-            con.execute("DELETE FROM okr_metrics")  # Clear existing data
+            # No need to delete data since we're creating a new partitioned table
             # Add a unique index to protect against duplicates at the DB level
-            con.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_okr_unique ON okr_metrics(owner, period, metric_type, value, unit)")
-            con.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_okr_unique2 ON okr_metrics(owner, period, metric_type)")
-            con.execute("INSERT INTO okr_metrics (id, owner, period, metric_type, value, unit, objective) SELECT id, owner, period, metric_type, value, unit, objective FROM df")
+            con.execute(f"CREATE UNIQUE INDEX IF NOT EXISTS idx_okr_unique_{timestamp} ON {table_name}(owner, period, metric_type, value, unit)")
+            con.execute(f"CREATE UNIQUE INDEX IF NOT EXISTS idx_okr_unique2_{timestamp} ON {table_name}(owner, period, metric_type)")
+            con.execute(f"INSERT INTO {table_name} (id, owner, period, metric_type, value, unit, objective) SELECT id, owner, period, metric_type, value, unit, objective FROM df")
             
+            # Update employee_fellow table from external source database
+            try:
+                # Attach external database
+                con.execute("ATTACH '/Users/xiaofei.yin/rill_test.db' AS external_db")
+
+                # Try to query the source table directly (will fail if it doesn't exist)
+                try:
+                    con.execute("SELECT 1 FROM external_db.onvo_employee_fellow_maturity_info_1d_a LIMIT 1")
+                    print("Updating employee_fellow table from external source...")
+                    # Create or replace employee_fellow table from external source
+                    con.execute("""
+                        CREATE OR REPLACE TABLE employee_fellow AS
+                        SELECT
+                            fellow_ad_account,
+                            mate_fellow_nh_name,
+                            fellow_city_company_name,
+                            leader_workday_title,
+                            fellow_workday_cn_title,
+                            department_5_cn_name,
+                            department_5_en_name
+                        FROM external_db.onvo_employee_fellow_maturity_info_1d_a
+                        WHERE
+                            fellow_emp_status_name = '在职'
+                            AND is_intern = FALSE
+                            AND fellow_ad_account IS NOT NULL
+                    """)
+                    print("employee_fellow table updated successfully")
+                except Exception as table_error:
+                    print(f"Warning: Source table onvo_employee_fellow_maturity_info_1d_a not found or not accessible: {table_error}")
+
+                # Detach external database
+                con.execute("DETACH external_db")
+
+            except Exception as e:
+                print(f"Warning: Could not update employee_fellow table from external source: {e}")
+                try:
+                    con.execute("DETACH external_db")
+                except:
+                    pass
+
             # Attempt to enrich with employee attributes if the source table exists
             try:
                 exists = con.execute("""
                     SELECT COUNT(*)
-                    FROM information_schema.tables 
-                    WHERE table_name = 'onvo_employee_fellow_maturity_info_1d_a'
+                    FROM information_schema.tables
+                    WHERE table_name = 'employee_fellow'
                 """).fetchone()[0]
                 if exists:
                     # Ensure columns exist (idempotent)
-                    con.execute("ALTER TABLE okr_metrics ADD COLUMN IF NOT EXISTS mate_fellow_nh_name VARCHAR")
-                    con.execute("ALTER TABLE okr_metrics ADD COLUMN IF NOT EXISTS fellow_city_company_name VARCHAR")
-                    con.execute("ALTER TABLE okr_metrics ADD COLUMN IF NOT EXISTS fellow_workday_cn_title VARCHAR")
-                    # Populate via left join
-                    con.execute("""
-                        UPDATE okr_metrics AS m
+                    con.execute(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS mate_fellow_nh_name VARCHAR")
+                    con.execute(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS fellow_city_company_name VARCHAR")
+                    con.execute(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS leader_workday_title VARCHAR")
+                    con.execute(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS fellow_workday_cn_title VARCHAR")
+                    # Populate columns via left join
+                    con.execute(f"""
+                        UPDATE {table_name} AS m
                         SET mate_fellow_nh_name = e.mate_fellow_nh_name,
                             fellow_city_company_name = e.fellow_city_company_name,
+                            leader_workday_title = e.leader_workday_title,
                             fellow_workday_cn_title = e.fellow_workday_cn_title
-                        FROM onvo_employee_fellow_maturity_info_1d_a AS e
+                        FROM employee_fellow AS e
                         WHERE m.owner = e.fellow_ad_account
                     """)
             except Exception as _:
                 pass
-        
-        return con
+
+        return con, table_name
     
-    def get_metrics_summary(self, con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    def get_metrics_summary(self, con: duckdb.DuckDBPyConnection, table_name: str) -> pd.DataFrame:
         """Get a summary of metrics by owner and period."""
-        return con.execute("""
-            SELECT 
+        return con.execute(f"""
+            SELECT
                 owner,
                 period,
                 metric_type,
                 SUM(value) as total_value,
                 COUNT(*) as metric_count,
                 unit
-            FROM okr_metrics 
+            FROM {table_name}
             GROUP BY owner, period, metric_type, unit
             ORDER BY owner, period, metric_type
         """).df()
     
-    def get_owner_summary(self, con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    def get_owner_summary(self, con: duckdb.DuckDBPyConnection, table_name: str) -> pd.DataFrame:
         """Get a summary of metrics by owner."""
-        return con.execute("""
-            SELECT 
+        return con.execute(f"""
+            SELECT
                 owner,
                 metric_type,
                 SUM(value) as total_value,
                 COUNT(*) as metric_count,
                 unit
-            FROM okr_metrics 
+            FROM {table_name}
             GROUP BY owner, metric_type, unit
             ORDER BY owner, metric_type
         """).df()
@@ -401,32 +448,32 @@ def main():
     
     # Create DuckDB table
     print(f"Creating DuckDB table: {args.db_path}")
-    con = extractor.create_duckdb_table(args.db_path)
-    
+    con, table_name = extractor.create_duckdb_table(args.db_path)
+
     # Get summaries
-    print("\nMetrics Summary by Owner and Period:")
-    summary = extractor.get_metrics_summary(con)
+    print(f"\nMetrics Summary by Owner and Period (table: {table_name}):")
+    summary = extractor.get_metrics_summary(con, table_name)
     print(summary.head(20))
-    
-    print("\nOwner Summary:")
-    owner_summary = extractor.get_owner_summary(con)
+
+    print(f"\nOwner Summary (table: {table_name}):")
+    owner_summary = extractor.get_owner_summary(con, table_name)
     print(owner_summary.head(20))
     
     # Show some example queries
     print("\nExample Queries:")
     print("1. Total metrics by type:")
-    result = con.execute("""
+    result = con.execute(f"""
         SELECT metric_type, SUM(value) as total, COUNT(*) as count
-        FROM okr_metrics 
+        FROM {table_name}
         GROUP BY metric_type
         ORDER BY total DESC
     """).df()
     print(result)
-    
+
     print("\n2. Top 10 owners by total metrics:")
-    result = con.execute("""
+    result = con.execute(f"""
         SELECT owner, SUM(value) as total_metrics, COUNT(*) as metric_count
-        FROM okr_metrics 
+        FROM {table_name}
         GROUP BY owner
         ORDER BY total_metrics DESC
         LIMIT 10

@@ -6,9 +6,10 @@
 - **Run single test user**: `uv run python main_orchestrator.py --okr_limit 1`
 - **Go-to sequence**:
   1. `uv run python generate_okr_report.py --okr_limit 2` (test OKR data in okr_report_*.md)
-  2. `uv run python extract_okr_metrics.py outputs/reports/okr_report_*.md` (test data in okr_metrics.db)
+  2. `uv run python extract_okr_metrics.py outputs/reports/okr_report_*.md` (test data in timestamped okr_metrics_YYYYMMDD_HHMMSS tables)
   3. `uv run python summary_insights.py` (create heatmap visualization plot)
 - **Run individual scripts**: `uv run python generate_okr_report.py --okr_limit 2`
+- **Extract metrics (creates timestamped partitions)**: `uv run python extract_okr_metrics.py outputs/reports/okr_report_*.md --db-path okr_metrics.db`
 - **Run scripts sequentially**: `python run_sequential.py script1.py script2.py ...`
 
 ## Architecture Overview

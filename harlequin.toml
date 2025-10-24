@@ -1,0 +1,10 @@
+default_profile = "starrocks"
+
+[profiles.starrocks]
+adapter = "mysql"
+host = "starrocks-prod.nioint.com"
+port = 9030
+user = "onvo_dpa"
+password = "6Y38WANR8oPnYjfc"
+database = "onvo_dpa_data"
+theme = "dracula"
