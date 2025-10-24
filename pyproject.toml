@@ -6,4 +6,6 @@ dependencies = [
     "duckdb",
     "requests",
     "pandas",
+    "matplotlib",
+    "seaborn",
 ]
