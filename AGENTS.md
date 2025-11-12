@@ -4,7 +4,24 @@
 
 - **Run full pipeline**: `uv run python main_orchestrator.py --okr_limit 5`
 - **Run single test user**: `uv run python main_orchestrator.py --okr_limit 1`
-- **Go-to sequence**:
+
+### Fellow Workflow
+- **Go-to sequence for fellows**:
+  1. `uv run python generate_okr_report_fellow.py --okr_limit 2` (test OKR data in okr_report_fellow_*.md)
+  2. `uv run python extract_okr_metrics.py outputs/reports/okr_report_fellow_*.md` (test data in timestamped okr_metrics_YYYYMMDD_HHMMSS tables)
+  3. `uv run python summary_insights.py` (create heatmap visualization plot)
+- **Run individual fellow script**: `uv run python generate_okr_report_fellow.py --okr_limit 2`
+
+### Manager Workflow
+- **Go-to sequence for managers**:
+  1. `uv run python generate_okr_report_manager.py --okr_limit 2` (test OKR data in okr_report_manager_*.md)
+  2. `uv run python extract_okr_metrics.py outputs/reports/okr_report_manager_*.md` (test data in timestamped okr_metrics_YYYYMMDD_HHMMSS tables)
+  3. `uv run python summary_insights.py` (create heatmap visualization plot)
+  4. `./mgr_has_metric_by_company.sh "<month>"` (generate manager metrics heatmap by company for specified month)
+- **Run individual manager script**: `uv run python generate_okr_report_manager.py --okr_limit 2`
+
+### General Commands
+- **Go-to sequence (general)**:
   1. `uv run python generate_okr_report.py --okr_limit 2` (test OKR data in okr_report_*.md)
   2. `uv run python extract_okr_metrics.py outputs/reports/okr_report_*.md` (test data in timestamped okr_metrics_YYYYMMDD_HHMMSS tables)
   3. `uv run python summary_insights.py` (create heatmap visualization plot)

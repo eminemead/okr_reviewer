@@ -11,6 +11,10 @@ import sys
 import time
 from datetime import datetime
 import subprocess
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 def generate_okr_report(okr_limit=2):
     """
