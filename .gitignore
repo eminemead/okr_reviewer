@@ -1,6 +1,7 @@
 # Python cache
 __pycache__/
 *.pyc
+.cache/
 
 # Environment variables
 .env
@@ -9,10 +10,13 @@ __pycache__/
 .DS_Store
 
 okr_metrics*.db
-.aider*
-opencodetmp/
 outputs/
+rill_dashboard_okr/
 
-# DuckDB and Harlequin UI files
+# Tool caches and temp files
+.aider*
+.cursor*
+opencodetmp/
 duckdb_ui.log
 harlequin.toml
+.sesskey
